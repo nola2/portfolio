@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Admin | Portfolio</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#f6f5f2;color:#1c1917}
+.wrap{max-width:860px;margin:0 auto;padding:1.2rem}h1{font-size:1.4rem;margin:.2rem 0 1rem}h2{font-size:1.1rem;margin:1.4rem 0 .6rem}
+.card{background:#fff;border:1px solid #e3e0d9;border-radius:12px;padding:1rem;margin-bottom:1rem}
+label{display:block;font-weight:600;font-size:.85rem;margin:.7rem 0 .2rem}
+input,textarea,select{width:100%;padding:.55rem .7rem;border:1px solid #cfcac0;border-radius:8px;font:inherit;background:#fff}textarea{min-height:90px;resize:vertical}
+button{padding:.55rem 1rem;border:1px solid #0f766e;background:#0f766e;color:#fff;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+button.alt{background:#fff;color:#0f766e}button.del{background:#fff;color:#b42318;border-color:#b42318}
+.tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}.tabs button{background:#fff;color:#1c1917;border-color:#cfcac0}.tabs button.on{background:#0f766e;color:#fff;border-color:#0f766e}
+.row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}.row>*{flex:1 1 140px}.row.s>*{flex:0 0 auto}
+.item{display:flex;gap:.8rem;align-items:center;justify-content:space-between;padding:.7rem 0;border-top:1px solid #eee}.item:first-child{border-top:0}
+.item img{width:64px;height:40px;object-fit:cover;border-radius:6px}.item small{color:#666;display:block}
+#toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1c1917;color:#fff;padding:.6rem 1rem;border-radius:8px;display:none}
+#photo{width:120px;height:120px;border-radius:50%;object-fit:cover;background:#eee;display:block;margin-bottom:.6rem}
+.hide{display:none!important}
+</style></head><body><div class="wrap">
+<div id="login" class="card hide" style="max-width:380px;margin:12vh auto"><h1>Admin login</h1>
+<label>Username</label><input id="u" autocomplete="username"><label>Password</label><input id="pw" type="password" autocomplete="current-password">
+<p><button id="go">Log in</button></p></div>
+
+<div id="app" class="hide">
+<div class="row s" style="justify-content:space-between"><h1>Portfolio admin</h1><span><a href="/" target="_blank">View site</a> &nbsp; <button class="alt" id="out">Log out</button></span></div>
+<div class="tabs"><button data-t="t-profile" class="on">Profile &amp; photo</button><button data-t="t-projects">Projects</button><button data-t="t-skills">Skills</button><button data-t="t-msgs">Messages</button></div>
+
+<section id="t-profile">
+<div class="card"><h2 style="margin-top:0">Photo</h2><img id="photo" alt=""><input type="file" id="pfile" accept="image/jpeg,image/png,image/webp">
+<p class="row s"><button id="pup">Upload photo</button><button class="del" id="pdel">Remove photo</button></p><small>JPG, PNG or WEBP, max 3 MB. Use a clear face photo, cropped square if possible.</small></div>
+<div class="card"><h2 style="margin-top:0">Text &amp; numbers</h2><form id="pf"></form><p><button id="psave">Save profile</button></p>
+<small>Leave a box empty to keep the default text already on the page.</small></div>
+</section>
+
+<section id="t-projects" class="hide">
+<div class="card"><h2 id="ptitle" style="margin-top:0">Add project</h2><form id="jf">
+<label>Title</label><input name="title" required maxlength="150">
+<div class="row"><div><label>Category</label><select name="category"><option value="software">Software</option><option value="vision">Computer vision</option><option value="security">Security</option></select></div>
+<div><label>Order (small = first, optional)</label><input name="position" type="number"></div></div>
+<label>Description</label><textarea name="description" required maxlength="1200"></textarea>
+<label>Technologies (comma separated)</label><input name="technologies" placeholder="Python, OpenCV, Excel">
+<label>Link (GitHub / live, optional, must start with https://)</label><input name="link" type="url">
+<label>Image (optional)</label><input type="file" name="image" accept="image/jpeg,image/png,image/webp">
+<label id="rmwrap" class="hide"><input type="checkbox" name="remove_image" value="1" style="width:auto"> Remove current image</label>
+<p class="row s"><button type="submit" id="jsave">Add project</button><button type="button" class="alt hide" id="jcancel">Cancel edit</button></p></form></div>
+<div class="card" id="plist"></div>
+</section>
+
+<section id="t-skills" class="hide"><div class="card"><h2 style="margin-top:0">Add skill</h2>
+<div class="row"><input id="sc" placeholder="Category (e.g. Languages)" list="cats"><datalist id="cats"></datalist><input id="sn" placeholder="Skill (e.g. Node.js)"><button class="" id="sadd" style="flex:0 0 auto">Add</button></div></div>
+<div class="card" id="slist"></div></section>
+
+<section id="t-msgs" class="hide"><div class="card" id="mlist"></div></section>
+</div></div><div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',2800)}
+async function api(m,u,b){const o={method:m,credentials:'same-origin'};if(b instanceof FormData)o.body=b;else if(b){o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(b)}
+const r=await fetch(u,o),j=await r.json().catch(()=>({}));if(r.status===401&&u!=='/api/admin/login')showLogin();if(!r.ok)throw new Error(j.error||'Error '+r.status);return j}
+const run=f=>async(...a)=>{try{await f(...a)}catch(e){toast(e.message)}};
+function showLogin(){$('#app').classList.add('hide');$('#login').classList.remove('hide')}
+async function boot(){try{await api('GET','/api/admin/me');$('#login').classList.add('hide');$('#app').classList.remove('hide');loadProfile();loadProjects();loadSkills();loadMsgs()}catch(e){showLogin()}}
+$('#go').onclick=run(async()=>{await api('POST','/api/admin/login',{username:$('#u').value,password:$('#pw').value});$('#pw').value='';boot()});
+$('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+$('#out').onclick=run(async()=>{await api('POST','/api/admin/logout');showLogin()});
+$$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.classList.toggle('on',x===b));$$('section').forEach(s=>s.classList.toggle('hide',s.id!==b.dataset.t))});
+
+/* profile */
+const PF=[['lead','Intro paragraph (under the heading)','t'],['about','About me','t'],['cgpa','CGPA'],['solved','Codeforces problems solved'],['project_count','Project count (optional)'],['graduate_year','Graduate year (optional)'],['degree','Degree'],['institution','Institution'],['period','Study period']];
+$('#pf').innerHTML=PF.map(([k,l,t])=>`<label>${l}</label>${t?`<textarea name="${k}"></textarea>`:`<input name="${k}">`}`).join('');
+$('#pf').onsubmit=e=>e.preventDefault();
+const loadProfile=run(async()=>{const p=await (await fetch('/api/profile')).json();PF.forEach(([k])=>$('#pf').elements[k].value=p[k]||'');$('#photo').src=p.photo_url||'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='});
+$('#psave').onclick=run(async()=>{await api('PUT','/api/admin/profile',Object.fromEntries(PF.map(([k])=>[k,$('#pf').elements[k].value])));toast('Profile saved')});
+$('#pup').onclick=run(async()=>{const f=$('#pfile').files[0];if(!f)throw new Error('Choose an image first');const d=new FormData();d.append('photo',f);const r=await api('POST','/api/admin/photo',d);$('#photo').src=r.photo_url;$('#pfile').value='';toast('Photo updated')});
+$('#pdel').onclick=run(async()=>{if(!confirm('Remove photo?'))return;await api('DELETE','/api/admin/photo');loadProfile();toast('Photo removed')});
+
+/* projects */
+let projects=[];
+const jf=$('#jf');let editId=null;
+function resetForm(){editId=null;jf.reset();$('#ptitle').textContent='Add project';$('#jsave').textContent='Add project';$('#jcancel').classList.add('hide');$('#rmwrap').classList.add('hide')}
+$('#jcancel').onclick=resetForm;
+const loadProjects=run(async()=>{projects=await (await fetch('/api/projects')).json();
+$('#plist').innerHTML=projects.length?projects.map(p=>`<div class="item"><div class="row s">${p.image_url?`<img src="${esc(p.image_url)}" alt="">`:''}<div><b>${esc(p.title)}</b><small>${esc(p.category)} · order ${p.position}</small></div></div><div class="row s"><button class="alt" data-e="${p.id}">Edit</button><button class="del" data-d="${p.id}">Delete</button></div></div>`).join(''):'<p>No projects yet.</p>'});
+$('#plist').onclick=run(async e=>{const b=e.target.closest('button');if(!b)return;
+if(b.dataset.e){const p=projects.find(x=>x.id==b.dataset.e);editId=p.id;['title','category','description','link'].forEach(k=>jf.elements[k].value=p[k]||'');jf.elements.technologies.value=(p.technologies||[]).join(', ');jf.elements.position.value=p.position;jf.elements.image.value='';jf.elements.remove_image.checked=false;
+$('#ptitle').textContent='Edit project';$('#jsave').textContent='Save changes';$('#jcancel').classList.remove('hide');$('#rmwrap').classList.toggle('hide',!p.image_url);scrollTo({top:0,behavior:'smooth'})}
+if(b.dataset.d&&confirm('Delete this project?')){await api('DELETE','/api/admin/projects/'+b.dataset.d);loadProjects();toast('Deleted')}});
+jf.onsubmit=run(async e=>{e.preventDefault();const d=new FormData(jf);if(!jf.elements.remove_image.checked)d.delete('remove_image');if(!jf.elements.image.files.length)d.delete('image');
+await api(editId?'PUT':'POST','/api/admin/projects'+(editId?'/'+editId:''),d);toast(editId?'Project updated':'Project added');resetForm();loadProjects()});
+
+/* skills */
+const loadSkills=run(async()=>{const s=await (await fetch('/api/skills')).json(),g={};s.forEach(x=>(g[x.category]=g[x.category]||[]).push(x));
+$('#cats').innerHTML=Object.keys(g).map(c=>`<option value="${esc(c)}">`).join('');
+$('#slist').innerHTML=Object.entries(g).map(([c,a])=>`<div class="item" style="align-items:flex-start"><b style="min-width:150px">${esc(c)}</b><div class="row s" style="flex:1">${a.map(x=>`<span style="border:1px solid #ddd;border-radius:99px;padding:.15rem .3rem .15rem .7rem">${esc(x.name)} <a href="#" data-s="${x.id}" style="color:#b42318;text-decoration:none">✕</a></span>`).join('')}</div></div>`).join('')||'<p>No skills yet.</p>'});
+$('#slist').onclick=run(async e=>{const a=e.target.closest('a[data-s]');if(!a)return;e.preventDefault();await api('DELETE','/api/admin/skills/'+a.dataset.s);loadSkills()});
+$('#sadd').onclick=run(async()=>{await api('POST','/api/admin/skills',{category:$('#sc').value,name:$('#sn').value});$('#sn').value='';loadSkills();toast('Skill added')});
+
+/* messages */
+const loadMsgs=run(async()=>{const m=await api('GET','/api/admin/messages');
+$('#mlist').innerHTML=m.length?m.map(x=>`<div class="item" style="align-items:flex-start"><div><b>${esc(x.name)}</b> &lt;${esc(x.email)}&gt;<small>${new Date(x.created_at).toLocaleString()}</small><div style="white-space:pre-wrap;margin-top:.3rem">${esc(x.message)}</div></div><button class="del" data-m="${x.id}">Delete</button></div>`).join(''):'<p>No messages yet.</p>'});
+$('#mlist').onclick=run(async e=>{const b=e.target.closest('button[data-m]');if(!b||!confirm('Delete message?'))return;await api('DELETE','/api/admin/messages/'+b.dataset.m);loadMsgs()});
+boot();
+</script></body></html>
