@@ -7,9 +7,7 @@ const PROJECTS = [
   ['Full-Stack Personal Portfolio', 'software', 'Building this portfolio end-to-end: responsive frontend, Node.js and Express backend, PostgreSQL data storage, admin authentication, content management and deployment.', ['HTML','CSS','JavaScript','Node.js','Express','PostgreSQL'], null],
   ['Face Recognition Attendance System', 'vision', 'Captures faces from the webcam, trains a recognizer, identifies people live, and writes each person into an Excel attendance sheet with the time.', ['Python','OpenCV','Excel'], 'https://github.com/nola2/Face-Recognition-Attendance-System'],
   ['Employee Management System', 'software', 'Java desktop app with a splash screen, login and home dashboard. Add, update, remove and view employee records in a SQL database.', ['Java','Swing','SQL','NetBeans'], 'https://github.com/nola2/Employee-Management-System'],
-  ['Emergency Vehicle Detection', 'vision', 'A thesis-oriented system that combines video-based vehicle detection with audio-based siren classification to support an emergency-event decision.', ['Python','YOLOv8','OpenCV','MFCC','LSTM'], null],
-  ['Fracture Detection Research', 'vision', 'Object-detection models for musculoskeletal fracture detection, with duplicate-aware evaluation, test-time augmentation and weighted boxes fusion.', ['YOLO','Object detection','Evaluation'], null],
-  ['Ultimate Tic Tac Toe with AI', 'software', 'The nested nine-board game with the forced next-board rule, win detection on small and big boards, and a computer opponent.', ['Python','Game logic','AI'], 'https://github.com/nola2/Ultimate-Tic-Tac-Toe-AI'],
+      ['Ultimate Tic Tac Toe with AI', 'software', 'The nested nine-board game with the forced next-board rule, win detection on small and big boards, and a computer opponent.', ['Python','Game logic','AI'], 'https://github.com/nola2/Ultimate-Tic-Tac-Toe-AI'],
   ['Web Security Assessment', 'security', 'Practice assessments using Acunetix scanning, reconnaissance and SQL injection testing, written up as penetration-testing reports.', ['Acunetix','Reconnaissance','SQL injection','Reporting'], null]
 ];
 const SKILLS = {
@@ -27,6 +25,7 @@ async function init() {
     CREATE TABLE IF NOT EXISTS profile(id INT PRIMARY KEY DEFAULT 1, lead TEXT, about TEXT, cgpa TEXT, solved TEXT, project_count TEXT, graduate_year TEXT, degree TEXT, institution TEXT, period TEXT, photo_id INT REFERENCES images(id) ON DELETE SET NULL);
     CREATE TABLE IF NOT EXISTS projects(id SERIAL PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'software', technologies TEXT[] NOT NULL DEFAULT '{}', link TEXT, image_id INT REFERENCES images(id) ON DELETE SET NULL, position INT NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS skills(id SERIAL PRIMARY KEY, category TEXT NOT NULL, name TEXT NOT NULL, position INT NOT NULL DEFAULT 0);
+    ALTER TABLE profile ADD COLUMN IF NOT EXISTS resume_id INT REFERENCES images(id) ON DELETE SET NULL;
     CREATE TABLE IF NOT EXISTS messages(id SERIAL PRIMARY KEY, name TEXT, email TEXT, message TEXT, created_at TIMESTAMPTZ DEFAULT now());
   `);
   await pool.query(

@@ -23,6 +23,11 @@ const up = multer({
   fileFilter: (req, f, cb) => /^image\/(jpeg|png|webp)$/.test(f.mimetype) ? cb(null, true)
     : cb(Object.assign(new Error('Only JPG, PNG or WEBP images are allowed'), { code: 'BAD_TYPE' }))
 });
+const upPdf = multer({
+  storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, f, cb) => f.mimetype === 'application/pdf' ? cb(null, true)
+    : cb(Object.assign(new Error('Only PDF files are allowed'), { code: 'BAD_TYPE' }))
+});
 const saveImage = async f => (await pool.query('INSERT INTO images(mime,data) VALUES($1,$2) RETURNING id', [f.mimetype, f.buffer])).rows[0].id;
 const dropImage = id => id ? pool.query('DELETE FROM images WHERE id=$1', [id]) : null;
 const imgUrl = id => id ? `/api/image/${id}` : null;
@@ -35,7 +40,7 @@ function auth(req, res, next) {
 /* ---------- public API ---------- */
 app.get('/api/profile', wrap(async (req, res) => {
   const p = (await pool.query('SELECT * FROM profile WHERE id=1')).rows[0] || {};
-  p.photo_url = imgUrl(p.photo_id); res.json(p);
+  p.photo_url = imgUrl(p.photo_id); p.resume_custom = !!p.resume_id; res.json(p);
 }));
 app.get('/api/projects', wrap(async (req, res) => {
   const r = await pool.query('SELECT * FROM projects ORDER BY position, id');
@@ -81,6 +86,20 @@ app.post('/api/admin/photo', auth, up.single('photo'), wrap(async (req, res) => 
 app.delete('/api/admin/photo', auth, wrap(async (req, res) => {
   const old = (await pool.query('SELECT photo_id FROM profile WHERE id=1')).rows[0]?.photo_id;
   await pool.query('UPDATE profile SET photo_id=NULL WHERE id=1'); await dropImage(old);
+  res.json({ ok: true });
+}));
+
+app.post('/api/admin/resume', auth, upPdf.single('resume'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Choose a PDF first' });
+  if (req.file.buffer.subarray(0, 4).toString() !== '%PDF') return res.status(400).json({ error: 'That file is not a valid PDF' });
+  const old = (await pool.query('SELECT resume_id FROM profile WHERE id=1')).rows[0]?.resume_id;
+  const id = await saveImage(req.file);
+  await pool.query('UPDATE profile SET resume_id=$1 WHERE id=1', [id]); await dropImage(old);
+  res.json({ ok: true });
+}));
+app.delete('/api/admin/resume', auth, wrap(async (req, res) => {
+  const old = (await pool.query('SELECT resume_id FROM profile WHERE id=1')).rows[0]?.resume_id;
+  await pool.query('UPDATE profile SET resume_id=NULL WHERE id=1'); await dropImage(old);
   res.json({ ok: true });
 }));
 
@@ -130,14 +149,22 @@ app.delete('/api/admin/skills/:id', auth, wrap(async (req, res) => { await pool.
 app.get('/api/admin/messages', auth, wrap(async (req, res) => res.json((await pool.query('SELECT * FROM messages ORDER BY id DESC LIMIT 200')).rows)));
 app.delete('/api/admin/messages/:id', auth, wrap(async (req, res) => { await pool.query('DELETE FROM messages WHERE id=$1', [parseInt(req.params.id) || 0]); res.json({ ok: true }); }));
 
+app.get('/healthz', (req, res) => res.type('text').send('ok')); // lightweight ping, does not touch the database
+
 /* ---------- pages ---------- */
+app.get('/resume.pdf', wrap(async (req, res) => {
+  const r = await pool.query('SELECT i.mime, i.data FROM profile p JOIN images i ON i.id=p.resume_id WHERE p.id=1');
+  res.set('Content-Disposition', 'inline; filename="Md_Shoaib_CV.pdf"').set('Cache-Control', 'no-cache');
+  if (r.rowCount) return res.type(r.rows[0].mime).send(r.rows[0].data);
+  res.sendFile(path.join(__dirname, 'defaults', 'Md_Shoaib_CV.pdf')); // built-in fallback until a CV is uploaded
+}));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 app.use((err, req, res, next) => {
   const bad = err.code === 'LIMIT_FILE_SIZE' || err.code === 'BAD_TYPE';
   if (!bad) console.error(err);
-  res.status(bad ? (err.code === 'LIMIT_FILE_SIZE' ? 413 : 400) : 500).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'Image too large (max 3 MB)' : bad ? err.message : 'Server error' });
+  res.status(bad ? (err.code === 'LIMIT_FILE_SIZE' ? 413 : 400) : 500).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File too large (images max 3 MB, PDF max 5 MB)' : bad ? err.message : 'Server error' });
 });
 
 init().then(() => app.listen(process.env.PORT || 3000, () => console.log('Running on port ' + (process.env.PORT || 3000))))

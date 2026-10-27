@@ -14,7 +14,7 @@ button.alt{background:#fff;color:#0f766e}button.del{background:#fff;color:#b4231
 .item{display:flex;gap:.8rem;align-items:center;justify-content:space-between;padding:.7rem 0;border-top:1px solid #eee}.item:first-child{border-top:0}
 .item img{width:64px;height:40px;object-fit:cover;border-radius:6px}.item small{color:#666;display:block}
 #toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1c1917;color:#fff;padding:.6rem 1rem;border-radius:8px;display:none}
-#photo{width:120px;height:120px;border-radius:50%;object-fit:cover;background:#eee;display:block;margin-bottom:.6rem}
+#photo{width:140px;height:140px;border-radius:28px;border:3px solid #0f766e;object-fit:cover;background:#eee;display:block;margin-bottom:.6rem}
 .hide{display:none!important}
 </style></head><body><div class="wrap">
 <div id="login" class="card hide" style="max-width:380px;margin:12vh auto"><h1>Admin login</h1>
@@ -27,7 +27,9 @@ button.alt{background:#fff;color:#0f766e}button.del{background:#fff;color:#b4231
 
 <section id="t-profile">
 <div class="card"><h2 style="margin-top:0">Photo</h2><img id="photo" alt=""><input type="file" id="pfile" accept="image/jpeg,image/png,image/webp">
-<p class="row s"><button id="pup">Upload photo</button><button class="del" id="pdel">Remove photo</button></p><small>JPG, PNG or WEBP, max 3 MB. Use a clear face photo, cropped square if possible.</small></div>
+<p class="row s"><button id="pup">Upload photo</button><button class="del" id="pdel">Remove photo</button></p><small>JPG, PNG or WEBP, max 3 MB. Shown as a rounded square on the site, so use a clear, close, square-ish face photo.</small></div>
+<div class="card"><h2 style="margin-top:0">Resume / CV (PDF)</h2><p id="rstat" style="margin:.2rem 0 .8rem"></p><input type="file" id="rfile" accept="application/pdf">
+<p class="row s"><button id="rup">Upload CV</button><button class="del" id="rdel">Remove uploaded CV</button><a href="/resume.pdf" target="_blank">View current CV</a></p><small>PDF only, max 5 MB. The Resume buttons on the site always open this file. If you remove it, the built-in default CV is shown.</small></div>
 <div class="card"><h2 style="margin-top:0">Text &amp; numbers</h2><form id="pf"></form><p><button id="psave">Save profile</button></p>
 <small>Leave a box empty to keep the default text already on the page.</small></div>
 </section>
@@ -70,9 +72,11 @@ $$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.cla
 const PF=[['lead','Intro paragraph (under the heading)','t'],['about','About me','t'],['cgpa','CGPA'],['solved','Codeforces problems solved'],['project_count','Project count (optional)'],['graduate_year','Graduate year (optional)'],['degree','Degree'],['institution','Institution'],['period','Study period']];
 $('#pf').innerHTML=PF.map(([k,l,t])=>`<label>${l}</label>${t?`<textarea name="${k}"></textarea>`:`<input name="${k}">`}`).join('');
 $('#pf').onsubmit=e=>e.preventDefault();
-const loadProfile=run(async()=>{const p=await (await fetch('/api/profile')).json();PF.forEach(([k])=>$('#pf').elements[k].value=p[k]||'');$('#photo').src=p.photo_url||'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='});
+const loadProfile=run(async()=>{const p=await (await fetch('/api/profile')).json();$('#rstat').textContent=p.resume_custom?'Using the CV you uploaded.':'Using the built-in default CV.';PF.forEach(([k])=>$('#pf').elements[k].value=p[k]||'');$('#photo').src=p.photo_url||'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='});
 $('#psave').onclick=run(async()=>{await api('PUT','/api/admin/profile',Object.fromEntries(PF.map(([k])=>[k,$('#pf').elements[k].value])));toast('Profile saved')});
 $('#pup').onclick=run(async()=>{const f=$('#pfile').files[0];if(!f)throw new Error('Choose an image first');const d=new FormData();d.append('photo',f);const r=await api('POST','/api/admin/photo',d);$('#photo').src=r.photo_url;$('#pfile').value='';toast('Photo updated')});
+$('#rup').onclick=run(async()=>{const f=$('#rfile').files[0];if(!f)throw new Error('Choose a PDF first');const d=new FormData();d.append('resume',f);await api('POST','/api/admin/resume',d);$('#rfile').value='';loadProfile();toast('CV updated')});
+$('#rdel').onclick=run(async()=>{if(!confirm('Remove the uploaded CV?'))return;await api('DELETE','/api/admin/resume');loadProfile();toast('Uploaded CV removed')});
 $('#pdel').onclick=run(async()=>{if(!confirm('Remove photo?'))return;await api('DELETE','/api/admin/photo');loadProfile();toast('Photo removed')});
 
 /* projects */
